@@ -19,11 +19,13 @@
 	\item Changed section titles
 	\item Fixed $\alpha^2 < 2d$ in summary
 	\item Removed typo from Equation \ref{eq:T_Diffusion}.
-	\item Added section on 1-D ADR
-	\item Added section on 2-D ADR
+	\item Added section on ADR
+	\item Added section on $\dot{x} = x^2$
+	\item Extended the Summary section
 \end{enumerate}
 \section{Introduction}
-In this document we will 
+In this document we will explore various numerical methods for propagating the Advection - Diffusion - Reaction equation forward in time. This equation describes physical processes and provides an opportunity to explore the limits of stability of numerical methods as well as different approaches to how to propagate time forward. 
+
 \section{Problem 1 - HW 1}
 The continuous Advection-Diffusion Equation is:
 \begin{equation}
@@ -209,6 +211,7 @@ With this redefined T the numerical solution is just as efficient as before thou
 
 
 \section{HW 1 - 2D Diffusion with Dirichlet BC}
+\label{sec:HW1_2D}
 Extending our solution to 2D requires consideration of nearest neighbors in 2 rather than one dimension.  When using the 4 neighbors closely aligned on the grid we need to consider the rules defined by Eq. \ref{eq:dx} and \ref{eq:dx^2} for both spatial dimensions. This ultimately results in a transfer matrix described by $T_{jk} = \{\delta,1-4\delta,\delta\}$. Propagating this forward in time allows us to see the evolution of a system in 2D dimensions as in Figure \ref{fig:2D}
 \begin{figure}
 	\begin{subfigure}{.5\textwidth}
@@ -271,20 +274,110 @@ The case of logistic chemistry is more complicated, however, we can still use th
 \begin{equation}
 T_{AD} + (a - b \varphi) \cdot h * \mathbb{I},
 \end{equation}
-where $T_{AD}$ is the transfer matrix for pure Advection-Diffusion, and $\mathbb{I}$ is the identity Matrix. $\mathbb{I}$ will of dimension Nx x Nx so the addition should exclude the first and last rows and columns of $T_{AD}$ to keep the periodic boundary conditions. 
+where $T_{AD}$ is the transfer matrix for pure Advection-Diffusion, and $\mathbb{I}$ is the identity Matrix. $\mathbb{I}$ will of dimension Nx x Nx so the addition should exclude the first and last rows and columns of $T_{AD}$ to keep the periodic boundary conditions. The results of such a propagation scheme can be seen in Figure \ref{1D_ADR}
 
+
+\begin{figure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.8\linewidth]{figures/1D_ADR.png}
+		\caption{}
+	\end{subfigure}%
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.8\linewidth]{figures/1D_ADR_diag.png}
+		\caption{}
+	\end{subfigure}
+	\caption{(a) A plot of the results for a simulation of 1 dimensional ADR with periodic boundary conditions. The initial condition was a sharp Gaussian in the center of the simulation with a max value of one. (b) Diagnostic plots confirming that the solution is slowly gaining mass and entropy over time. The entropy shows an interesting feature, where at first it decreases, likely due to strong diffusivity, and then grows as there is more mass added to the system due to chemistry. The number of time steps was kept limited here in order to showcase the details at low t, however, if the simulation is extended for a long time the mass asymptotes to the value expected from the logistic chemistry, giving us confidence in the accuracy of our simulation. The diagnostic plots have been normalized so that their maximum value is one.}
+	\label{fig:1D_ADR}
+\end{figure}
+
+\subsection{Crank- Nicolson}
+Another way to propagate chemistry forward in time is to use an iterative time marching method. This method has the advantage of being easy to commute $\mathcal{O}(N*N_{iterations})$ while being fairly stable.
+	
+For a pure chemistry system we will have:
+\begin{equation}
+\hat{\varphi} = \varphi + R(\varphi)\cdot h/2 +R(\hat{\varphi})\cdot h/2
+\end{equation}
+this immediately is a problem as we cannot commute $\hat{\varphi}$ without knowing it first. The solution undertaken in a crank nicolson method is to first commute
+\begin{equation}
+\varphi^* = \varphi + R(\varphi)*h, 
+\end{equation}
+which is just the forward Euler result. Then to use the forward Euler results to calculate
+\begin{equation}
+\hat{\varphi} = \varphi + R(\varphi)\cdot h/2 +R(\hat{\varphi^*})\cdot h/2.
+\end{equation}
+\begin{figure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.8\linewidth]{figures/crank_nic_1D.png}
+		\caption{}
+	\end{subfigure}%
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.8\linewidth]{figures/crank_nic_diag.png}
+		\caption{}
+	\end{subfigure}
+	\caption{(a) A plot of the results for a simulation of 1 dimensional chemistry only equation (R) with periodic boundary conditions. The initial condition was a sharp Gaussian in the center of the simulation with a max value of one. Over time the solution appraoches the limiting value we would predict based on the (b) Diagnostic plots confirming that the solution is  gaining mass and entropy over time. The Entropy per unit mass H/M0 fairly quickly approaches its maximum value. The diagnostic plots have been normalized so that their maximum value is one.}
+	\label{fig:1D_crank_nic}
+\end{figure}
 
 \subsection{Commutability of Chemistry and AD Operators}
 In the system of ADR we can split our operator into two separate operators $L_1$ for just AD and $L_2$ for R. We could thus consider that our solution for $\varphi(t+h)$ could be written as either:
 \begin{equation}
 e^{L_1h}\{e^{(L_2h)}\varphi\} \text{ or } e^{L_2h}\{e^{(L_1h)}\varphi\}.
 \end{equation}
-However, this will only be true if the operators commute. When considering a system of limited size an easy way to determine the commutation error is to simply attempt both orderings of operators and observe the difference between the two solutions. In Figure \ref{fig:commute_error} we can see that these operators commute extremely well for logistic chemistry, as we might have expected 
+However, this will only be true if the operators commute. When considering a system of limited size an easy way to determine the commutation error is to simply attempt both orderings of operators and observe the difference between the two solutions. In Figure \ref{fig:commute_error} we can see that these operators commute extremely well for logistic chemistry, as we might have expected.
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{figures/operator_order_rel_dif.png}
+	\caption{A plot of the relative error when propagating and ADR equation in time with different operator error. The values on the Y axis are the average over the simulation grid of the percent difference between the operator orderings. As we expect chemistry and AD to commute well they are correspondingly small.  }
+	\label{fig:commute_error}
+\end{figure}
+
+\section{HW2 - Adaptive Time Stepping for $\dot{x}=x^2$}
+Choosing a time a priori can be difficult in order to achieve a desired level of accuracy in a reasonable amount of computation time. Furthermore, a static $\Delta t$ may be a reasonable value early in the computation but become too large as the system evolves. The solution to this is update $\Delta t$ as the simulation progresses. 
+
+In the case of the following equation:
+
+\begin{equation}
+\dot{x} = x^2
+\label{eq:ODE_thing}
+\end{equation}
+we can propagate forward in time by transforming the time derivative to the discrete regime.
+\begin{equation}
+\frac{\hat{x}-x}{h} = x^2
+\end{equation}
+\begin{equation}
+\hat{x} = hx^2+x.
+\end{equation}
+Now if we merely want to ensure that we are never jumping too far forward in time then we can limit the growth of the function in any one step. We do this by defining some epsilon as the maximum possible growth in a single time step:
+\begin{equation}
+|\frac{\hat{x}}{x}-1| < \epsilon,
+\end{equation}
+plugging in our value of $\hat{x}$ gives us
+\begin{equation}
+h < \frac{\epsilon}{x}
+\end{equation}
+as a condition to limit our growth. If we calculate $\frac{\epsilon}{x}$ at every time step then we should update $h$ according to 
+\begin{equation}
+h = q*\frac{\epsilon}{x},
+\end{equation}
+where $0<q<1$ is a factor added to ensure our safety in terms of growth. Smaller values of $\epsilon$ should then result in more, smaller, time step and a more accurate solution. As seen in Figure \ref{fig:adaptive}, smaller values of epsilon result in numerical solutions that are closer to the analytic solution of $x(t) = \frac{x(0)}{1-x(0)t}$.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{figures/adaptive.png}
+\caption{A plot comparing the analytic solution to Eq. \ref{eq:ODE_thing} to our adaptive method with various values of $\epsilon$. $\epsilon = 0.001$ is on the plot, however, at these scales it is indistinguishable from the analytic solution. For $\epsilon = \{0.1, 0.01, 0.001\}$ the solutions took 17, 178, and 1787 time steps to complete.  }
+	\label{fig:adaptive}
+\end{figure}
 \section{Summary}
-In this work I derived the dispersion relation for the discrete version of the Advection-Diffusion equation and analyzed its numerical stability, find that we require $\alpha^2 < 2\delta$ is necessary for stability but not sufficient to have a physically realizable solution. Following this I implemented a numerical solver for the 1 and 2 Dimensional Diffusion equations and examined several diagnostics. This analysis revealed that the boundary conditions are very important 
- a
+In this work I derived the dispersion relation for the discrete version of the Advection-Diffusion equation and analyzed its numerical stability, find that we require $\alpha^2 < 2\delta$ is necessary for stability but not sufficient to have a physically realizable solution. Following this I implemented a numerical solver for the 1 and 2 Dimensional Diffusion equations and examined several diagnostics. This analysis revealed that the boundary conditions are very important.
+
+We have also considered the addition of chemistry to the Advection Diffusion equation and implemented three different methods of solving it. Namely, forward Euler, crank-nicolson, and forward Euler with operator splitting. An adaptive time stepping method for solving ODE's was also considered. 
+ 
 \section{Acknowledgements}
-I consulted with Jenny Coulter at various points while working on this problem set.
+I consulted with Jenny Coulter for the sections in this document for HW 1. 
 
   \begin{thebibliography}{1}
   	
